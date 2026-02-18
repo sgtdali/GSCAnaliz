@@ -32,7 +32,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { validateApiKey, successResponse, errorResponse } from '@/lib/api/middleware';
+import { successResponse, errorResponse } from '@/lib/api/middleware';
 import { getActionRecommendations } from '@/lib/db/queries';
 
 const ACTION_DETAILS: Record<string, { title: string; description: string; suggestedActions: string[] }> = {
@@ -108,8 +108,6 @@ const ACTION_DETAILS: Record<string, { title: string; description: string; sugge
 };
 
 export async function GET(request: NextRequest) {
-    const authError = validateApiKey(request);
-    if (authError) return authError;
 
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') || undefined;

@@ -23,12 +23,10 @@
  */
 
 import { NextRequest } from 'next/server';
-import { validateApiKey, successResponse, errorResponse } from '@/lib/api/middleware';
+import { successResponse, errorResponse } from '@/lib/api/middleware';
 import { getWeeklySummary } from '@/lib/db/queries';
 
 export async function GET(request: NextRequest) {
-    const authError = validateApiKey(request);
-    if (authError) return authError;
 
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page') || undefined;

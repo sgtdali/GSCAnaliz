@@ -18,13 +18,10 @@
  */
 
 import { NextRequest } from 'next/server';
-import { validateApiKey, successResponse, errorResponse } from '@/lib/api/middleware';
+import { successResponse, errorResponse } from '@/lib/api/middleware';
 import { getDailyMetrics } from '@/lib/db/queries';
 
 export async function GET(request: NextRequest) {
-    // Auth check
-    const authError = validateApiKey(request);
-    if (authError) return authError;
 
     // Query params
     const searchParams = request.nextUrl.searchParams;

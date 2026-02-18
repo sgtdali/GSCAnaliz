@@ -25,7 +25,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { validateApiKey, successResponse, errorResponse } from '@/lib/api/middleware';
+import { successResponse, errorResponse } from '@/lib/api/middleware';
 import { insertChangeLog } from '@/lib/db/upsert';
 import { getSupabase } from '@/lib/db/connection';
 import { z } from 'zod';
@@ -40,8 +40,6 @@ const ChangeLogSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-    const authError = validateApiKey(request);
-    if (authError) return authError;
 
     try {
         const body = await request.json();
@@ -74,8 +72,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-    const authError = validateApiKey(request);
-    if (authError) return authError;
 
     const searchParams = request.nextUrl.searchParams;
     const page = searchParams.get('page');
