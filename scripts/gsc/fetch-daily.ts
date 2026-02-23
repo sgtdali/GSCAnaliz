@@ -12,7 +12,10 @@
  * - dataState='final' → sadece kesinleşmiş veri
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
 import { format, subDays, parseISO, isValid } from 'date-fns';
 import { fetchGSCMetrics } from '../../lib/gsc/client';
 import { upsertDailyMetrics, logFetchOperation } from '../../lib/db/upsert';
@@ -118,6 +121,7 @@ async function main() {
     } catch (error) {
         const err = error as Error;
         console.error('[fetch-daily] ❌ HATA:', err.message);
+        console.error(err.stack);
 
         await logFetchOperation({
             targetDate: targetDateStr,

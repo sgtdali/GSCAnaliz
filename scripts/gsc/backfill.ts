@@ -17,7 +17,9 @@
  * Not: GSC API en fazla 16 aylık veri sunar.
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 import {
     format,
     subDays,

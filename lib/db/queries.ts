@@ -83,7 +83,7 @@ export interface ActionRecommendation {
  * GET /api/seo/gsc/daily?page=...&days=30
  */
 export async function getDailyMetrics(
-    page: string,
+    page?: string,
     days: number = 30
 ): Promise<DailyMetric[]> {
     const supabase = getSupabase();
@@ -92,12 +92,20 @@ export async function getDailyMetrics(
     startDate.setDate(startDate.getDate() - days);
     const startDateStr = startDate.toISOString().split('T')[0];
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('gsc_daily_metrics')
         .select('date, page, clicks, impressions, ctr, position, fetched_at')
-        .eq('page', page)
         .gte('date', startDateStr)
         .order('date', { ascending: false });
+
+    if (page) {
+        query = query.eq('page', page);
+    } else {
+        // Eğer sayfa bazlı değilse, tıklamaya göre de sırala ki anlamlı olsun
+        query = query.order('clicks', { ascending: false });
+    }
+
+    const { data, error } = await query.limit(page ? 1000 : 500);
 
     if (error) throw new Error(`getDailyMetrics failed: ${error.message}`);
     return data || [];

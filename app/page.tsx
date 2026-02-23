@@ -1,27 +1,76 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import useSWR from 'swr';
+import {
+    Home, BarChart2, Calendar, Target, Microscope, FileText, RefreshCw, Settings,
+    ArrowUpRight, ArrowDownRight, Eye, MousePointer2, Percent, Hash, AlertTriangle,
+    ChevronRight, Info, CheckCircle2, TrendingUp, Search, X, Loader2
+} from 'lucide-react';
+
+const fetcher = (url: string) => fetch(url).then(res => res.json()).then(res => res.data);
 
 type Section = 'dashboard' | 'daily' | 'weekly' | 'actions' | 'impact' | 'changelog' | 'fetch' | 'settings';
 
 export default function Dashboard() {
     const [active, setActive] = useState<Section>('dashboard');
+    const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
+
+    // API Data Fetching
+    const { data: weeklyData, error: weeklyError } = useSWR('/api/seo/gsc/weekly', fetcher);
+    const { data: actionsData, error: actionsError } = useSWR('/api/seo/gsc/actions', fetcher);
+    const { data: changesData } = useSWR('/api/seo/gsc/changes', fetcher);
+
+    // Derived Stats for Dashboard
+    const stats = useMemo(() => {
+        if (!weeklyData || weeklyData.length === 0) return null;
+
+        // Use the latest week's total stats
+        const latestWeek = weeklyData[0]?.week_start;
+        const currentWeekPages = weeklyData.filter((w: any) => w.week_start === latestWeek);
+
+        const totals = currentWeekPages.reduce((acc: any, curr: any) => ({
+            clicks: acc.clicks + curr.total_clicks,
+            impressions: acc.impressions + curr.total_impressions,
+            prevClicks: acc.prevClicks + (curr.prev_clicks || 0),
+            prevImpressions: acc.prevImpressions + (curr.prev_impressions || 0),
+            posSum: acc.posSum + curr.avg_position,
+            count: acc.count + 1
+        }), { clicks: 0, impressions: 0, prevClicks: 0, prevImpressions: 0, posSum: 0, count: 0 });
+
+        const clickChange = totals.prevClicks > 0
+            ? ((totals.clicks - totals.prevClicks) / totals.prevClicks) * 100
+            : 0;
+
+        const impChange = totals.prevImpressions > 0
+            ? ((totals.impressions - totals.prevImpressions) / totals.prevImpressions) * 100
+            : 0;
+
+        return {
+            clicks: totals.clicks,
+            impressions: totals.impressions,
+            ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
+            avgPos: totals.posSum / totals.count,
+            clickChange,
+            impChange
+        };
+    }, [weeklyData]);
 
     const NAV = [
-        { id: 'dashboard' as Section, icon: '🏠', label: 'Dashboard' },
-        { id: 'daily' as Section, icon: '📈', label: 'Günlük Metrikler' },
-        { id: 'weekly' as Section, icon: '📅', label: 'Haftalık WoW' },
+        { id: 'dashboard' as Section, icon: <Home size={18} />, label: 'Dashboard' },
+        { id: 'daily' as Section, icon: <BarChart2 size={18} />, label: 'Günlük Metrikler' },
+        { id: 'weekly' as Section, icon: <Calendar size={18} />, label: 'Haftalık WoW' },
     ];
 
     const NAV_ANALYSIS = [
-        { id: 'actions' as Section, icon: '🎯', label: 'Aksiyon Önerileri', badge: 3 },
-        { id: 'impact' as Section, icon: '🔬', label: 'Etki Analizi' },
-        { id: 'changelog' as Section, icon: '📝', label: 'Değişiklik Günlüğü' },
+        { id: 'actions' as Section, icon: <Target size={18} />, label: 'Aksiyon Önerileri', badge: actionsData?.length },
+        { id: 'impact' as Section, icon: <Microscope size={18} />, label: 'Etki Analizi' },
+        { id: 'changelog' as Section, icon: <FileText size={18} />, label: 'Değişiklik Günlüğü' },
     ];
 
     const NAV_TOOLS = [
-        { id: 'fetch' as Section, icon: '🔄', label: 'Veri Çekme' },
-        { id: 'settings' as Section, icon: '⚙️', label: 'Ayarlar' },
+        { id: 'fetch' as Section, icon: <RefreshCw size={18} />, label: 'Veri Çekme' },
+        { id: 'settings' as Section, icon: <Settings size={18} />, label: 'Ayarlar' },
     ];
 
     const SECTION_TITLES: Record<Section, string> = {
@@ -37,12 +86,11 @@ export default function Dashboard() {
 
     return (
         <div className="app">
-            {/* ==================== SIDEBAR ==================== */}
             <aside className="sidebar">
                 <div className="sidebar__brand">
-                    <div className="sidebar__logo">📊</div>
+                    <div className="sidebar__logo">✨</div>
                     <div>
-                        <div className="sidebar__name">GSC Analytics</div>
+                        <div className="sidebar__name">SEO Control Center</div>
                         <div className="sidebar__site">uygunbakim.com</div>
                     </div>
                 </div>
@@ -69,7 +117,7 @@ export default function Dashboard() {
                         >
                             <span className="sidebar__link-icon">{item.icon}</span>
                             {item.label}
-                            {'badge' in item && item.badge && (
+                            {item.badge > 0 && (
                                 <span className="sidebar__link-badge">{item.badge}</span>
                             )}
                         </div>
@@ -91,12 +139,11 @@ export default function Dashboard() {
                 <div className="sidebar__footer">
                     <div className="sidebar__status">
                         <span className="sidebar__status-dot" />
-                        API Bağlantısı Aktif
+                        GSC API Bağlantısı Aktif
                     </div>
                 </div>
             </aside>
 
-            {/* ==================== MAIN ==================== */}
             <main className="main">
                 <header className="main__header">
                     <div className="main__header-left">
@@ -105,24 +152,25 @@ export default function Dashboard() {
                         </div>
                     </div>
                     <div className="main__header-right">
-                        <button className="main__header-btn">📅 Son 30 Gün</button>
-                        <button className="main__header-btn">🔄 Yenile</button>
-                        {active === 'changelog' && (
-                            <button className="main__header-btn main__header-btn--primary">+ Değişiklik Ekle</button>
-                        )}
+                        <button className="main__header-btn"><Calendar size={14} /> Son 30 Gün</button>
+                        <button className="main__header-btn" onClick={() => window.location.reload()}><RefreshCw size={14} /> Yenile</button>
                     </div>
                 </header>
 
                 <div className="main__content">
-                    {active === 'dashboard' && <DashboardView />}
+                    {active === 'dashboard' && <DashboardView stats={stats} weeklyData={weeklyData} actions={actionsData} onAnalyze={setAnalysisUrl} />}
                     {active === 'daily' && <DailyView />}
-                    {active === 'weekly' && <WeeklyView />}
-                    {active === 'actions' && <ActionsView />}
+                    {active === 'weekly' && <WeeklyView data={weeklyData} />}
+                    {active === 'actions' && <ActionsView data={actionsData} onAnalyze={setAnalysisUrl} />}
                     {active === 'impact' && <ImpactView />}
-                    {active === 'changelog' && <ChangeLogView />}
+                    {active === 'changelog' && <ChangeLogView data={changesData} />}
                     {active === 'fetch' && <FetchView />}
                     {active === 'settings' && <SettingsView />}
                 </div>
+
+                {analysisUrl && (
+                    <QueryAnalysisModal url={analysisUrl} onClose={() => setAnalysisUrl(null)} />
+                )}
             </main>
         </div>
     );
@@ -131,45 +179,108 @@ export default function Dashboard() {
 /* ============================================================
    DASHBOARD VIEW
    ============================================================ */
-function DashboardView() {
+function DashboardView({ stats, weeklyData, actions, onAnalyze }: { stats: any; weeklyData: any; actions: any; onAnalyze: (url: string) => void }) {
+    const trendData = useMemo(() => {
+        if (!weeklyData || weeklyData.length === 0) return { data: [], labels: [] };
+
+        // Group by week and sum clicks
+        const byWeek = weeklyData.reduce((acc: any, curr: any) => {
+            acc[curr.week_start] = (acc[curr.week_start] || 0) + curr.total_clicks;
+            return acc;
+        }, {});
+
+        const sortedWeeks = Object.keys(byWeek).sort();
+        const maxClicks = Math.max(...Object.values(byWeek) as number[]);
+
+        return {
+            data: sortedWeeks.map(w => ((byWeek[w] / (maxClicks || 1)) * 90) + 10), // normalized for chart height
+            labels: sortedWeeks.map(w => w.split('-').slice(1).join('/'))
+        };
+    }, [weeklyData]);
+
     return (
         <>
             {/* Stats */}
             <div className="stats-row">
-                <StatCard label="Toplam Tıklama" value="12,847" change="+12.4%" up icon="👆" color="purple" />
-                <StatCard label="Toplam Gösterim" value="384,291" change="+8.7%" up icon="👁️" color="blue" />
-                <StatCard label="Ortalama CTR" value="3.34%" change="+0.24" up icon="📊" color="green" />
-                <StatCard label="Ortalama Pozisyon" value="14.2" change="↑ 1.8" up icon="📍" color="orange" />
+                <StatCard
+                    label="Toplam Tıklama"
+                    value={stats?.clicks?.toLocaleString() || '0'}
+                    change={`${stats?.clickChange >= 0 ? '+' : ''}${stats?.clickChange?.toFixed(1)}%`}
+                    up={stats?.clickChange >= 0}
+                    icon={<MousePointer2 size={18} />}
+                    color="purple"
+                />
+                <StatCard
+                    label="Toplam Gösterim"
+                    value={stats?.impressions?.toLocaleString() || '0'}
+                    change={`${stats?.impChange >= 0 ? '+' : ''}${stats?.impChange?.toFixed(1)}%`}
+                    up={stats?.impChange >= 0}
+                    icon={<Eye size={18} />}
+                    color="blue"
+                />
+                <StatCard
+                    label="Ortalama CTR"
+                    value={`${stats?.ctr?.toFixed(2)}%`}
+                    change="" // WoW logic can be added
+                    up={true}
+                    icon={<Percent size={18} />}
+                    color="green"
+                />
+                <StatCard
+                    label="Ortalama Pozisyon"
+                    value={stats?.avgPos?.toFixed(1) || '0'}
+                    change=""
+                    up={false}
+                    icon={<Hash size={18} />}
+                    color="orange"
+                />
             </div>
 
             {/* Chart + Actions */}
             <div className="grid-3-1">
                 <div className="panel">
                     <div className="panel__header">
-                        <h3 className="panel__title"><span className="panel__title-icon">📈</span> Haftalık Tıklama Trendi</h3>
+                        <h3 className="panel__title"><TrendingUp size={16} className="panel__title-icon" /> Haftalık Tıklama Trendi</h3>
                     </div>
                     <div className="panel__body">
-                        <BarChart data={[42, 55, 38, 65, 48, 72, 58, 80, 68, 85, 75, 92]} labels={['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12']} />
+                        {weeklyData ? (
+                            <BarChart data={trendData.data} labels={trendData.labels} />
+                        ) : (
+                            <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                                Veri yükleniyor...
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="panel">
                     <div className="panel__header">
-                        <h3 className="panel__title"><span className="panel__title-icon">🎯</span> Aksiyon Önerileri</h3>
+                        <h3 className="panel__title"><Target size={16} className="panel__title-icon" /> Aksiyon Önerileri</h3>
                     </div>
                     <div className="panel__body">
                         <div className="action-list">
-                            <ActionItem severity="critical" icon="🔴" title="Query Kaybı Analizi" desc="/blog/en-iyi-bakim-urunleri" score={85} />
-                            <ActionItem severity="warning" icon="🟡" title="Title/Meta Testi" desc="/blog/cilt-bakim-rehberi" score={62} />
-                            <ActionItem severity="info" icon="🔵" title="Snippet İnceleme" desc="/blog/sac-bakim-ipuclari" score={45} />
-                            <ActionItem severity="positive" icon="🟢" title="Büyüme Fırsatı" desc="/blog/dogal-bakim-yontemleri" score={38} />
+                            {actions?.slice(0, 4).map((a: any, i: number) => (
+                                <ActionItem
+                                    key={i}
+                                    severity={a.priority_score > 70 ? 'critical' : a.priority_score > 40 ? 'warning' : 'info'}
+                                    icon={a.priority_score > 70 ? <AlertTriangle size={14} /> : <Info size={14} />}
+                                    title={a.action_recommendation}
+                                    desc={a.page.replace('https://uygunbakim.com', '')}
+                                    score={a.priority_score}
+                                    onClick={() => onAnalyze(a.page)}
+                                />
+                            ))}
+                            {(!actions || actions.length === 0) && (
+                                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                    Şu an için öneri yok.
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Top Pages */}
-            <TopPagesTable />
+            <TopPagesTable data={weeklyData} />
         </>
     );
 }
@@ -178,21 +289,15 @@ function DashboardView() {
    DAILY VIEW
    ============================================================ */
 function DailyView() {
-    const rows = [
-        { date: '2026-02-16', page: '/blog/en-iyi-bakim-urunleri', clicks: 412, impressions: 12480, ctr: '3.30%', position: '6.1' },
-        { date: '2026-02-16', page: '/blog/cilt-bakim-rehberi', clicks: 287, impressions: 9320, ctr: '3.08%', position: '8.4' },
-        { date: '2026-02-16', page: '/blog/sac-bakim-ipuclari', clicks: 198, impressions: 7150, ctr: '2.77%', position: '11.2' },
-        { date: '2026-02-16', page: '/blog/dogal-bakim-yontemleri', clicks: 156, impressions: 5840, ctr: '2.67%', position: '9.8' },
-        { date: '2026-02-16', page: '/blog/yuz-temizleme-rehberi', clicks: 102, impressions: 4210, ctr: '2.42%', position: '15.3' },
-        { date: '2026-02-15', page: '/blog/en-iyi-bakim-urunleri', clicks: 398, impressions: 11950, ctr: '3.33%', position: '6.3' },
-        { date: '2026-02-15', page: '/blog/cilt-bakim-rehberi', clicks: 265, impressions: 8740, ctr: '3.03%', position: '8.9' },
-        { date: '2026-02-15', page: '/blog/sac-bakim-ipuclari', clicks: 210, impressions: 7420, ctr: '2.83%', position: '10.8' },
-    ];
+    const { data: rows, error } = useSWR('/api/seo/gsc/daily', (url) => fetch(url).then(r => r.json()).then(res => res.data));
+
+    if (error) return <div className="panel__body">Hata oluştu.</div>;
+    if (!rows) return <div className="panel__body">Yükleniyor...</div>;
 
     return (
         <div className="panel">
             <div className="panel__header">
-                <h3 className="panel__title"><span className="panel__title-icon">📈</span> Günlük GSC Metrikleri</h3>
+                <h3 className="panel__title"><BarChart2 size={16} className="panel__title-icon" /> Günlük GSC Metrikleri</h3>
             </div>
             <div className="table-wrap">
                 <table className="table">
@@ -207,14 +312,14 @@ function DailyView() {
                         </tr>
                     </thead>
                     <tbody>
-                        {rows.map((r, i) => (
+                        {rows.map((r: any, i: number) => (
                             <tr key={i}>
                                 <td className="table__num">{r.date}</td>
-                                <td><span className="table__url">{r.page}</span></td>
-                                <td className="table__num">{r.clicks.toLocaleString()}</td>
-                                <td className="table__num">{r.impressions.toLocaleString()}</td>
-                                <td className="table__num">{r.ctr}</td>
-                                <td className="table__num">{r.position}</td>
+                                <td><span className="table__url">{r.page.replace('https://uygunbakim.com', '')}</span></td>
+                                <td className="table__num">{r.clicks?.toLocaleString()}</td>
+                                <td className="table__num">{r.impressions?.toLocaleString()}</td>
+                                <td className="table__num">{r.ctr?.toFixed(2)}%</td>
+                                <td className="table__num">{r.position?.toFixed(1)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -227,19 +332,13 @@ function DailyView() {
 /* ============================================================
    WEEKLY VIEW
    ============================================================ */
-function WeeklyView() {
-    const weeks = [
-        { start: '2026-02-10', end: '2026-02-16', page: '/blog/en-iyi-bakim-urunleri', clicks: 2847, impressions: 84291, ctr: '3.38%', pos: '6.2', clickW: '+18.2%', impW: '+12.1%', up: true },
-        { start: '2026-02-10', end: '2026-02-16', page: '/blog/cilt-bakim-rehberi', clicks: 1923, impressions: 62480, ctr: '3.08%', pos: '8.7', clickW: '-5.4%', impW: '+22.3%', up: false },
-        { start: '2026-02-10', end: '2026-02-16', page: '/blog/sac-bakim-ipuclari', clicks: 1456, impressions: 48320, ctr: '3.01%', pos: '11.4', clickW: '+8.1%', impW: '+5.6%', up: true },
-        { start: '2026-02-10', end: '2026-02-16', page: '/blog/dogal-bakim-yontemleri', clicks: 982, impressions: 31850, ctr: '3.08%', pos: '9.1', clickW: '+34.7%', impW: '+28.9%', up: true },
-        { start: '2026-02-03', end: '2026-02-09', page: '/blog/en-iyi-bakim-urunleri', clicks: 2408, impressions: 75190, ctr: '3.20%', pos: '6.8', clickW: '+5.1%', impW: '+3.2%', up: true },
-    ];
+function WeeklyView({ data }: { data: any }) {
+    if (!data) return <div className="panel__body">Yükleniyor...</div>;
 
     return (
         <div className="panel">
             <div className="panel__header">
-                <h3 className="panel__title"><span className="panel__title-icon">📅</span> Haftalık WoW Karşılaştırma</h3>
+                <h3 className="panel__title"><Calendar size={16} className="panel__title-icon" /> Haftalık WoW Karşılaştırma</h3>
             </div>
             <div className="table-wrap">
                 <table className="table">
@@ -256,16 +355,20 @@ function WeeklyView() {
                         </tr>
                     </thead>
                     <tbody>
-                        {weeks.map((w, i) => (
+                        {data.map((w: any, i: number) => (
                             <tr key={i}>
-                                <td className="table__num">{w.start}</td>
-                                <td><span className="table__url">{w.page}</span></td>
-                                <td className="table__num">{w.clicks.toLocaleString()}</td>
-                                <td><span className={`table__change ${w.up ? 'table__change--up' : 'table__change--down'}`}>{w.clickW}</span></td>
-                                <td className="table__num">{w.impressions.toLocaleString()}</td>
-                                <td><span className={`table__change ${w.impW.startsWith('+') ? 'table__change--up' : 'table__change--down'}`}>{w.impW}</span></td>
-                                <td className="table__num">{w.ctr}</td>
-                                <td className="table__num">{w.pos}</td>
+                                <td className="table__num">{w.week_start}</td>
+                                <td><span className="table__url">{w.page.replace('https://uygunbakim.com', '')}</span></td>
+                                <td className="table__num">{w.total_clicks?.toLocaleString()}</td>
+                                <td><span className={`table__change ${(w.click_change_pct || 0) >= 0 ? 'table__change--up' : 'table__change--down'}`}>
+                                    {(w.click_change_pct || 0) >= 0 ? '+' : ''}{w.click_change_pct?.toFixed(1)}%
+                                </span></td>
+                                <td className="table__num">{w.total_impressions?.toLocaleString()}</td>
+                                <td><span className={`table__change ${(w.impression_change_pct || 0) >= 0 ? 'table__change--up' : 'table__change--down'}`}>
+                                    {(w.impression_change_pct || 0) >= 0 ? '+' : ''}{w.impression_change_pct?.toFixed(1)}%
+                                </span></td>
+                                <td className="table__num">{w.avg_ctr?.toFixed(2)}%</td>
+                                <td className="table__num">{w.avg_position?.toFixed(1)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -278,27 +381,27 @@ function WeeklyView() {
 /* ============================================================
    ACTIONS VIEW
    ============================================================ */
-function ActionsView() {
-    const actions = [
-        { severity: 'critical' as const, icon: '🔴', title: 'QUERY_LOSS_ANALYSIS', desc: '/blog/yuz-temizleme-rehberi — Click ↓18.3%, ihtiyaç: Query kırılım analizi yapın', score: 85 },
-        { severity: 'critical' as const, icon: '🔴', title: 'URGENT_REVIEW', desc: '/blog/anti-aging-serumlar — Click ↓22%, Impression ↓15%. Acil inceleme gerekli', score: 78 },
-        { severity: 'warning' as const, icon: '🟡', title: 'TITLE_META_TEST', desc: '/blog/cilt-bakim-rehberi — Impression ↑22.3% ama CTR ↓0.6%. Title/meta iyileştirin', score: 62 },
-        { severity: 'info' as const, icon: '🔵', title: 'SNIPPET_INTENT_REVIEW', desc: '/blog/sac-bakim-ipuclari — Pozisyon iyileşti ama click düşük. Snippet intent uyumu kontrol edin', score: 45 },
-        { severity: 'info' as const, icon: '🔵', title: 'POSITION_DECLINE_CHECK', desc: '/blog/parfum-rehberi — Pozisyon 2.4 basamak kötüleşti. İçerik güncelliğini kontrol edin', score: 42 },
-        { severity: 'positive' as const, icon: '🟢', title: 'GROWTH_OPPORTUNITY', desc: '/blog/dogal-bakim-yontemleri — Click ↑34.7%, Impression ↑28.9%. Bu içeriği genişletin', score: 38 },
-        { severity: 'positive' as const, icon: '🟢', title: 'GROWTH_OPPORTUNITY', desc: '/blog/en-iyi-bakim-urunleri — Click ↑18.2%. İç link ağını güçlendirin', score: 35 },
-    ];
+function ActionsView({ data, onAnalyze }: { data: any; onAnalyze: (url: string) => void }) {
+    if (!data) return <div className="panel__body">Yükleniyor...</div>;
 
     return (
         <div className="panel">
             <div className="panel__header">
-                <h3 className="panel__title"><span className="panel__title-icon">🎯</span> Tüm Aksiyon Önerileri</h3>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{actions.length} aksiyon · öncelik sıralı</span>
+                <h3 className="panel__title"><Target size={16} className="panel__title-icon" /> Tüm Aksiyon Önerileri</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{data.length} aksiyon · öncelik sıralı</span>
             </div>
             <div className="panel__body">
                 <div className="action-list">
-                    {actions.map((a, i) => (
-                        <ActionItem key={i} {...a} />
+                    {data.map((a: any, i: number) => (
+                        <ActionItem
+                            key={i}
+                            severity={a.priority_score > 70 ? 'critical' : a.priority_score > 40 ? 'warning' : 'info'}
+                            icon={a.priority_score > 70 ? <AlertTriangle size={14} /> : <Info size={14} />}
+                            title={a.action_recommendation}
+                            desc={`${a.page.replace('https://uygunbakim.com', '')} — ${a.action_detail?.description || ''}`}
+                            score={a.priority_score}
+                            onClick={() => onAnalyze(a.page)}
+                        />
                     ))}
                 </div>
             </div>
@@ -364,34 +467,38 @@ function ImpactView() {
 /* ============================================================
    CHANGELOG VIEW
    ============================================================ */
-function ChangeLogView() {
-    const logs = [
-        { type: 'title', label: 'Title', text: 'Title tag güncellendi: daha spesifik anahtar kelime', page: '/blog/en-iyi-bakim-urunleri', time: '3 gün önce', actor: 'seo-team' },
-        { type: 'content', label: 'Content', text: 'İçerik genişletildi: 1200 → 2400 kelime, yeni bölümler eklendi', page: '/blog/cilt-bakim-rehberi', time: '5 gün önce', actor: 'editor' },
-        { type: 'tech', label: 'Tech', text: 'Schema markup eklendi: FAQ ve HowTo structured data', page: '/blog/sac-bakim-ipuclari', time: '1 hafta önce', actor: 'dev' },
-        { type: 'meta', label: 'Meta', text: 'Meta description yeniden yazıldı, CTA eklendi', page: '/blog/dogal-bakim-yontemleri', time: '2 hafta önce', actor: 'seo-team' },
-        { type: 'content', label: 'Content', text: 'İç linkler güncellendi, ilgili yazılara bağlantı eklendi', page: '/blog/en-iyi-bakim-urunleri', time: '2 hafta önce', actor: 'editor' },
-        { type: 'title', label: 'Title', text: 'H1 etiketi SEO uyumlu hale getirildi', page: '/blog/yuz-temizleme-rehberi', time: '3 hafta önce', actor: 'seo-team' },
-    ];
+function ChangeLogView({ data }: { data: any }) {
+    if (!data) return <div className="panel__body">Yükleniyor...</div>;
+
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'title': return <TrendingUp size={12} />;
+            case 'content': return <FileText size={12} />;
+            case 'tech': return <Settings size={12} />;
+            default: return <Info size={12} />;
+        }
+    };
 
     return (
         <div className="panel">
             <div className="panel__header">
-                <h3 className="panel__title"><span className="panel__title-icon">📝</span> Değişiklik Günlüğü</h3>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{logs.length} kayıt</span>
+                <h3 className="panel__title"><FileText size={16} className="panel__title-icon" /> Değişiklik Günlüğü</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{data.length} kayıt</span>
             </div>
             <div className="panel__body">
                 <div className="changelog">
-                    {logs.map((log, i) => (
+                    {data.map((log: any, i: number) => (
                         <div key={i} className="changelog__item">
                             <div className="changelog__dot-line">
                                 <div className="changelog__dot" />
-                                {i < logs.length - 1 && <div className="changelog__line" />}
+                                {i < data.length - 1 && <div className="changelog__line" />}
                             </div>
                             <div className="changelog__content">
-                                <span className={`changelog__type changelog__type--${log.type}`}>{log.label}</span>
-                                <div className="changelog__text">{log.text}</div>
-                                <div className="changelog__meta">{log.page} · {log.time} · {log.actor}</div>
+                                <span className={`changelog__type changelog__type--${log.change_type}`}>
+                                    {getIcon(log.change_type)} {log.change_type.toUpperCase()}
+                                </span>
+                                <div className="changelog__text">{log.description}</div>
+                                <div className="changelog__meta">{log.page.replace('https://uygunbakim.com', '')} · {new Date(log.changed_at).toLocaleDateString()} · {log.actor}</div>
                             </div>
                         </div>
                     ))}
@@ -541,7 +648,7 @@ function SettingsView() {
    ============================================================ */
 
 function StatCard({ label, value, change, up, icon, color }: {
-    label: string; value: string; change: string; up: boolean; icon: string; color: string;
+    label: string; value: string; change: string; up: boolean; icon: React.ReactNode; color: string;
 }) {
     return (
         <div className="stat-card">
@@ -556,11 +663,11 @@ function StatCard({ label, value, change, up, icon, color }: {
     );
 }
 
-function ActionItem({ severity, icon, title, desc, score }: {
-    severity: 'critical' | 'warning' | 'info' | 'positive'; icon: string; title: string; desc: string; score: number;
+function ActionItem({ severity, icon, title, desc, score, onClick }: {
+    severity: 'critical' | 'warning' | 'info' | 'positive'; icon: React.ReactNode; title: string; desc: string; score: number; onClick?: () => void;
 }) {
     return (
-        <div className="action-item">
+        <div className={`action-item ${onClick ? 'action-item--clickable' : ''}`} onClick={onClick}>
             <div className={`action-item__severity action-item__severity--${severity}`}>{icon}</div>
             <div className="action-item__content">
                 <div className="action-item__title">{title}</div>
@@ -594,44 +701,155 @@ function BarChart({ data, labels }: { data: number[]; labels: string[] }) {
     );
 }
 
-function TopPagesTable() {
-    const pages = [
-        { url: '/blog/en-iyi-bakim-urunleri', clicks: '2,847', clickW: '+18.2%', imp: '84,291', impW: '+12.1%', ctr: '3.38%', pos: '6.2', spark: [40, 50, 35, 60, 45, 70, 55, 80], up: true },
-        { url: '/blog/cilt-bakim-rehberi', clicks: '1,923', clickW: '-5.4%', imp: '62,480', impW: '+22.3%', ctr: '3.08%', pos: '8.7', spark: [60, 55, 65, 50, 70, 45, 55, 40], up: false },
-        { url: '/blog/sac-bakim-ipuclari', clicks: '1,456', clickW: '+8.1%', imp: '48,320', impW: '+5.6%', ctr: '3.01%', pos: '11.4', spark: [30, 45, 40, 55, 50, 60, 65, 70], up: true },
-        { url: '/blog/dogal-bakim-yontemleri', clicks: '982', clickW: '+34.7%', imp: '31,850', impW: '+28.9%', ctr: '3.08%', pos: '9.1', spark: [20, 30, 35, 45, 50, 60, 75, 90], up: true },
-        { url: '/blog/yuz-temizleme-rehberi', clicks: '764', clickW: '-12.3%', imp: '28,140', impW: '-8.1%', ctr: '2.72%', pos: '15.8', spark: [80, 70, 65, 55, 50, 40, 35, 30], up: false },
-    ];
+function TopPagesTable({ data }: { data: any }) {
+    const pages = useMemo(() => {
+        if (!data) return [];
+        // Use latest records for ranking
+        const latestWeek = data[0]?.week_start;
+        return data.filter((w: any) => w.week_start === latestWeek)
+            .sort((a: any, b: any) => b.total_clicks - a.total_clicks)
+            .slice(0, 10);
+    }, [data]);
 
     return (
         <div className="panel">
             <div className="panel__header">
-                <h3 className="panel__title"><span className="panel__title-icon">🏆</span> En İyi Blog Sayfaları (WoW)</h3>
+                <h3 className="panel__title"><Search size={16} className="panel__title-icon" /> En İyi Blog Sayfaları (WoW)</h3>
             </div>
             <div className="table-wrap">
                 <table className="table">
                     <thead>
-                        <tr><th>Sayfa</th><th>Click</th><th>WoW</th><th>Impression</th><th>WoW</th><th>CTR</th><th>Pozisyon</th><th>Trend</th></tr>
+                        <tr><th>Sayfa</th><th>Click</th><th>WoW</th><th>Impression</th><th>WoW</th><th>CTR</th><th>Pozisyon</th></tr>
                     </thead>
                     <tbody>
-                        {pages.map((p, i) => (
+                        {pages.map((p: any, i: number) => (
                             <tr key={i}>
-                                <td><span className="table__url">{p.url}</span></td>
-                                <td className="table__num">{p.clicks}</td>
-                                <td><span className={`table__change ${p.up ? 'table__change--up' : 'table__change--down'}`}>{p.clickW}</span></td>
-                                <td className="table__num">{p.imp}</td>
-                                <td><span className={`table__change ${p.impW.startsWith('+') ? 'table__change--up' : 'table__change--down'}`}>{p.impW}</span></td>
-                                <td className="table__num">{p.ctr}</td>
-                                <td className="table__num">{p.pos}</td>
-                                <td>
-                                    <div className="sparkline">
-                                        {p.spark.map((h, j) => <div key={j} className="sparkline__bar" style={{ height: `${h}%` }} />)}
-                                    </div>
-                                </td>
+                                <td><span className="table__url">{p.page.replace('https://uygunbakim.com', '')}</span></td>
+                                <td className="table__num">{p.total_clicks?.toLocaleString()}</td>
+                                <td><span className={`table__change ${(p.click_change_pct || 0) >= 0 ? 'table__change--up' : 'table__change--down'}`}>
+                                    {(p.click_change_pct || 0) >= 0 ? '+' : ''}{p.click_change_pct?.toFixed(1)}%
+                                </span></td>
+                                <td className="table__num">{p.total_impressions?.toLocaleString()}</td>
+                                <td><span className={`table__change ${(p.impression_change_pct || 0) >= 0 ? 'table__change--up' : 'table__change--down'}`}>
+                                    {(p.impression_change_pct || 0) >= 0 ? '+' : ''}{p.impression_change_pct?.toFixed(1)}%
+                                </span></td>
+                                <td className="table__num">{p.avg_ctr?.toFixed(2)}%</td>
+                                <td className="table__num">{p.avg_position?.toFixed(1)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    );
+}
+
+function QueryAnalysisModal({ url, onClose }: { url: string; onClose: () => void }) {
+    const { data: analysis, error } = useSWR(`/api/seo/gsc/queries?page=${encodeURIComponent(url)}`, (u) => fetch(u).then(r => r.json()).then(res => res.data));
+
+    return (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="modal">
+                <div className="modal__header">
+                    <h3 className="modal__title">
+                        <TrendingUp size={18} className="panel__title-icon" style={{ color: 'var(--accent-light)' }} />
+                        Sorgu Bazlı Kayıp/Kazanç Analizi
+                    </h3>
+                    <button className="modal__close" onClick={onClose}><X size={16} /></button>
+                </div>
+                <div className="modal__body">
+                    <div style={{ padding: '20px', borderBottom: '1px solid var(--glass-border)', background: 'var(--bg-card)' }}>
+                        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '4px' }}>İncelenen Sayfa</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all', fontSize: '14px' }}>{url.replace('https://uygunbakim.com', '')}</div>
+                    </div>
+
+                    {!analysis && !error && (
+                        <div style={{ padding: '80px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            <div className="loading-spinner" style={{ marginBottom: '16px' }}>
+                                <Loader2 size={32} className="icon-spin" style={{ color: 'var(--accent)' }} />
+                            </div>
+                            <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)' }}>GSC Verileri Analiz Ediliyor</div>
+                            <div style={{ fontSize: '13px', marginTop: '6px' }}>Anahtar kelime değişimleri karşılaştırılıyor...</div>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div style={{ padding: '60px 40px', textAlign: 'center' }}>
+                            <AlertTriangle size={32} style={{ color: 'var(--red)', marginBottom: '16px' }} />
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Veri Analizi Başarısız</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>GSC API bağlantısında bir sorun oluştu.</div>
+                        </div>
+                    )}
+
+                    {analysis && analysis.queries.length === 0 && (
+                        <div style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            <Search size={32} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                            <div>Bu sayfa için son 14 günde yeterli anahtar kelime verisi bulunamadı.</div>
+                        </div>
+                    )}
+
+                    {analysis && analysis.queries.length > 0 && (
+                        <div className="table-wrap" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+                            <table className="table">
+                                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card)' }}>
+                                    <tr>
+                                        <th>Sorgu (Query)</th>
+                                        <th className="table__num">Tıklama</th>
+                                        <th className="table__num">Fark</th>
+                                        <th className="table__num">Pozisyon</th>
+                                        <th>Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {analysis.queries.map((q: any, i: number) => (
+                                        <tr key={i}>
+                                            <td style={{ maxWidth: '250px' }}>
+                                                <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {q.query}
+                                                </div>
+                                            </td>
+                                            <td className="table__num" style={{ fontSize: '11px' }}>
+                                                {q.current.clicks} <span style={{ color: 'var(--text-muted)' }}>/ {q.previous?.clicks || 0}</span>
+                                            </td>
+                                            <td className={`table__num ${q.diff.clicks >= 0 ? 'table__change--up' : 'table__change--down'}`} style={{ fontWeight: 600, fontSize: '13px' }}>
+                                                {q.diff.clicks >= 0 ? '+' : ''}{q.diff.clicks}
+                                            </td>
+                                            <td className="table__num" style={{ fontSize: '11px' }}>
+                                                {q.current.position.toFixed(1)}
+                                                <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>
+                                                    ({(q.diff.position >= 0 ? '+' : '')}{q.diff.position.toFixed(1)})
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {q.diff.clicks < 0 && q.diff.position < -0.5 && (
+                                                    <span style={{ fontSize: '10px', padding: '2px 8px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: '12px', border: '1px solid var(--red-border)', fontWeight: 600 }}>Sıralama Kaybı</span>
+                                                )}
+                                                {q.diff.clicks < 0 && q.diff.position >= -0.5 && (
+                                                    <span style={{ fontSize: '10px', padding: '2px 8px', background: 'var(--yellow-bg)', color: 'var(--yellow)', borderRadius: '12px', border: '1px solid var(--yellow-border)', fontWeight: 600 }}>Trafik Kaybı</span>
+                                                )}
+                                                {q.diff.clicks > 0 && (
+                                                    <span style={{ fontSize: '10px', padding: '2px 8px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: '12px', border: '1px solid var(--green-border)', fontWeight: 600 }}>Yükseliş ✨</span>
+                                                )}
+                                                {q.diff.clicks === 0 && (
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Değişim yok</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+                {analysis && (
+                    <div style={{ padding: '16px 24px', background: 'var(--bg-elevated)', borderTop: '1px solid var(--glass-border)', fontSize: '11px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <span>Yeni: {analysis.periods.current.start} - {analysis.periods.current.end}</span>
+                            <span>Eski: {analysis.periods.previous.start} - {analysis.periods.previous.end}</span>
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)' }}>* Veriler Search Console API&apos;den canlı alınmaktadır.</div>
+                    </div>
+                )}
             </div>
         </div>
     );

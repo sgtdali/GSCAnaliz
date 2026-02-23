@@ -25,12 +25,8 @@ export async function GET(request: NextRequest) {
 
     // Query params
     const searchParams = request.nextUrl.searchParams;
-    const page = searchParams.get('page');
+    const page = searchParams.get('page') || undefined;
     const days = parseInt(searchParams.get('days') || '30', 10);
-
-    if (!page) {
-        return errorResponse('Missing required parameter: page', 400);
-    }
 
     if (isNaN(days) || days < 1 || days > 365) {
         return errorResponse('Invalid parameter: days must be between 1 and 365', 400);
