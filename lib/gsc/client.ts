@@ -313,3 +313,98 @@ export async function fetchSingleUrlDetail(
         queries,
     };
 }
+/**
+ * Keyword Cannibalization verisi çeker.
+ * Query ve Page boyutlarını birlikte çeker.
+ * prefix filtresi uygulanmaz (tüm site için).
+ */
+export async function fetchCannibalizationData(
+    startDate: string,
+    endDate: string,
+    rowLimit: number = 5000
+): Promise<Array<{ query: string; page: string; clicks: number; impressions: number; ctr: number; position: number }>> {
+    const auth = await getAuthenticatedClient();
+    const searchConsole = google.searchconsole({ version: 'v1', auth });
+
+    await rateLimiter.waitIfNeeded();
+
+    const result = await searchConsole.searchanalytics.query({
+        siteUrl: SITE_URL,
+        requestBody: {
+            startDate,
+            endDate,
+            dimensions: ['query', 'page'],
+            rowLimit,
+            type: 'web',
+            dataState: 'final',
+        },
+    });
+
+    return (result.data.rows || []).map(row => ({
+        query: row.keys?.[0] || '',
+        page: row.keys?.[1] || '',
+        clicks: row.clicks || 0,
+        impressions: row.impressions || 0,
+        ctr: Math.round((row.ctr || 0) * 10000) / 100,
+        position: Math.round((row.position || 0) * 100) / 100,
+    }));
+}
+/**
+ * URL Inspection API'den detaylı index durumunu çeker.
+ * Kota: 2000 request / gün / property.
+ */
+export async function inspectUrl(url: string): Promise<searchconsole_v1.Schema$UrlInspectionResult> {
+    const auth = await getAuthenticatedClient();
+    const searchConsole = google.searchconsole({ version: 'v1', auth });
+
+    await rateLimiter.waitIfNeeded();
+
+    const result = await searchConsole.urlInspection.index.inspect({
+        requestBody: {
+            inspectionUrl: url,
+            siteUrl: SITE_URL,
+            languageCode: 'tr-TR',
+        },
+    });
+
+    return result.data.inspectionResult || {};
+}
+
+/**
+ * Belirli bir tarih aralığında gösterim almış TÜM sayfaları çeker.
+ * Index analizi için "truth" listesi olarak kullanılır.
+ */
+export async function fetchAllPagesWithTraffic(
+    startDate: string,
+    endDate: string,
+    urlPrefix: string = DEFAULT_URL_PREFIX
+): Promise<Array<{ page: string; clicks: number; impressions: number }>> {
+    const auth = await getAuthenticatedClient();
+    const searchConsole = google.searchconsole({ version: 'v1', auth });
+
+    await rateLimiter.waitIfNeeded();
+
+    const result = await searchConsole.searchanalytics.query({
+        siteUrl: SITE_URL,
+        requestBody: {
+            startDate,
+            endDate,
+            dimensions: ['page'],
+            dimensionFilterGroups: urlPrefix ? [{
+                filters: [{
+                    dimension: 'page',
+                    operator: 'includingRegex',
+                    expression: `https://uygunbakim\\.com${urlPrefix.replace(/\//g, '\\/')}`,
+                }],
+            }] : [],
+            rowLimit: 25000,
+            type: 'web',
+        },
+    });
+
+    return (result.data.rows || []).map(row => ({
+        page: row.keys?.[0] || '',
+        clicks: row.clicks || 0,
+        impressions: row.impressions || 0,
+    }));
+}

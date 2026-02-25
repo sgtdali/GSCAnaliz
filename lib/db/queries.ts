@@ -74,6 +74,16 @@ export interface ActionRecommendation {
     priority_score: number;
 }
 
+export interface IndexStatus {
+    url: string;
+    verdict: string;
+    coverage_state: string;
+    last_crawl_time: string | null;
+    google_canonical: string | null;
+    status_type: string;
+    updated_at: string;
+}
+
 // ============================================
 // Queries
 // ============================================
@@ -348,6 +358,40 @@ export async function getTopPages(
         .slice(0, limit);
 }
 
+/**
+ * Get all indexing statuses from DB.
+ */
+export async function getIndexStatuses(): Promise<IndexStatus[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('gsc_index_status')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+    if (error) throw new Error(`getIndexStatuses failed: ${error.message}`);
+    return data || [];
+}
+
+/**
+ * Upsert a single indexing status result.
+ */
+export async function upsertIndexStatus(status: Partial<IndexStatus>) {
+    const supabase = getSupabase();
+    const { error } = await supabase
+        .from('gsc_index_status')
+        .upsert({
+            url: status.url,
+            verdict: status.verdict,
+            coverage_state: status.coverage_state,
+            last_crawl_time: status.last_crawl_time,
+            google_canonical: status.google_canonical,
+            status_type: status.status_type,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'url' });
+
+    if (error) throw new Error(`upsertIndexStatus failed: ${error.message}`);
+}
+
 // ============================================
 // Helpers
 // ============================================
@@ -371,6 +415,33 @@ function aggregateMetrics(rows: Array<{ clicks: number; impressions: number; ctr
         avgPosition,
         dataDays: rows.length,
     };
+}
+
+/**
+ * Get site metadata value by key.
+ */
+export async function getSiteMetadata(key: string): Promise<string | null> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('site_metadata')
+        .select('value')
+        .eq('key', key)
+        .single();
+
+    if (error && error.code !== 'PGRST116') throw new Error(`getSiteMetadata failed: ${error.message}`);
+    return data?.value || null;
+}
+
+/**
+ * Update site metadata value.
+ */
+export async function updateSiteMetadata(key: string, value: string) {
+    const supabase = getSupabase();
+    const { error } = await supabase
+        .from('site_metadata')
+        .upsert({ key, value, updated_at: new Date().toISOString() });
+
+    if (error) throw new Error(`updateSiteMetadata failed: ${error.message}`);
 }
 
 /**
