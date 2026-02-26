@@ -1,4 +1,4 @@
-export type Section = 'dashboard' | 'daily' | 'weekly' | 'actions' | 'impact' | 'changelog' | 'cannibalization' | 'indexing' | 'fetch' | 'settings' | 'low-hanging-fruits' | 'crawler';
+export type Section = 'dashboard' | 'daily' | 'weekly' | 'actions' | 'cannibalization' | 'indexing' | 'fetch' | 'settings' | 'low-hanging-fruits' | 'crawler' | 'blog-versioning';
 
 export interface DailyMetric {
     date: string;

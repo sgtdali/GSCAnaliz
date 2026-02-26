@@ -14,14 +14,13 @@ import { DashboardView } from './components/DashboardView';
 import { DailyView } from './components/DailyView';
 import { WeeklyView } from './components/WeeklyView';
 import { ActionsView } from './components/ActionsView';
-import { ImpactView } from './components/ImpactView';
-import { ChangeLogView } from './components/ChangeLogView';
 import { CannibalizationView } from './components/CannibalizationView';
 import { IndexingView } from './components/IndexingView';
 import { FetchView } from './components/FetchView';
 import { SettingsView } from './components/SettingsView';
 import { LowHangingFruitsView } from './components/LowHangingFruitsView'; // SEO Analysis
 import { CrawlerView } from './components/CrawlerView'; // Link Crawler
+import { BlogVersionerView } from './components/BlogVersionerView'; // Blog Change Management
 
 // Shared Components
 import { QueryAnalysisModal } from './components/shared/QueryAnalysisModal';
@@ -35,7 +34,6 @@ export default function Dashboard() {
     // API Data Fetching
     const { data: weeklyData } = useSWR('/api/seo/gsc/weekly', fetcher);
     const { data: actionsData } = useSWR('/api/seo/gsc/actions', fetcher);
-    const { data: changesData } = useSWR('/api/seo/gsc/changes', fetcher);
 
     // Derived Stats for Dashboard
     const stats = useMemo(() => {
@@ -80,12 +78,11 @@ export default function Dashboard() {
 
     const NAV_ANALYSIS = [
         { id: 'actions' as Section, icon: <Target size={18} />, label: 'Aksiyon Önerileri', badge: actionsData?.length },
-        { id: 'impact' as Section, icon: <Microscope size={18} />, label: 'Etki Analizi' },
         { id: 'cannibalization' as Section, icon: <Layers size={18} />, label: 'Keyword Cannibalizm' },
         { id: 'low-hanging-fruits' as Section, icon: <TrendingUp size={18} />, label: 'Hızlı Kazanımlar (Fırsat)' },
         { id: 'indexing' as Section, icon: <CheckCircle2 size={18} />, label: 'Index Durumu' },
         { id: 'crawler' as Section, icon: <Network size={18} />, label: 'Link Crawler (Beta)' },
-        { id: 'changelog' as Section, icon: <FileText size={18} />, label: 'Değişiklik Günlüğü' },
+        { id: 'blog-versioning' as Section, icon: <Layers size={18} />, label: 'Blog Değişiklik Kontrolü' },
     ];
 
     const NAV_TOOLS = [
@@ -98,12 +95,11 @@ export default function Dashboard() {
         daily: 'Günlük Metrikler',
         weekly: 'Haftalık WoW Analiz',
         actions: 'Aksiyon Önerileri',
-        impact: 'Etki Analizi',
-        changelog: 'Değişiklik Günlüğü',
         cannibalization: 'Keyword Cannibalizm Tespiti',
         'low-hanging-fruits': 'Hızlı Kazanımlar (Low-Hanging Fruits)',
         indexing: 'Index Durumu Analizi (/blog)',
         crawler: 'İç Link Crawler ve Haritalama',
+        'blog-versioning': 'Blog Değişiklik Yönetimi (Git-like)',
         fetch: 'Veri Çekme',
         settings: 'Ayarlar',
     };
@@ -186,12 +182,11 @@ export default function Dashboard() {
                     {active === 'daily' && <DailyView />}
                     {active === 'weekly' && <WeeklyView data={weeklyData} />}
                     {active === 'actions' && <ActionsView data={actionsData} onAnalyze={setAnalysisUrl} />}
-                    {active === 'impact' && <ImpactView />}
-                    {active === 'changelog' && <ChangeLogView data={changesData} />}
                     {active === 'cannibalization' && <CannibalizationView />}
                     {active === 'low-hanging-fruits' && <LowHangingFruitsView onAnalyze={setAnalysisUrl} />}
                     {active === 'indexing' && <IndexingView />}
                     {active === 'crawler' && <CrawlerView />}
+                    {active === 'blog-versioning' && <BlogVersionerView />}
                     {active === 'fetch' && <FetchView />}
                     {active === 'settings' && <SettingsView />}
                 </div>
