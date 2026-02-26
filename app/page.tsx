@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import {
     Home, BarChart2, Calendar, Target, Microscope, FileText, RefreshCw, Settings,
-    CheckCircle2, Layers, TrendingUp
+    CheckCircle2, Layers, TrendingUp, Network
 } from 'lucide-react';
 
 import { Section } from '@/lib/types';
@@ -21,6 +21,7 @@ import { IndexingView } from './components/IndexingView';
 import { FetchView } from './components/FetchView';
 import { SettingsView } from './components/SettingsView';
 import { LowHangingFruitsView } from './components/LowHangingFruitsView'; // SEO Analysis
+import { CrawlerView } from './components/CrawlerView'; // Link Crawler
 
 // Shared Components
 import { QueryAnalysisModal } from './components/shared/QueryAnalysisModal';
@@ -83,6 +84,7 @@ export default function Dashboard() {
         { id: 'cannibalization' as Section, icon: <Layers size={18} />, label: 'Keyword Cannibalizm' },
         { id: 'low-hanging-fruits' as Section, icon: <TrendingUp size={18} />, label: 'Hızlı Kazanımlar (Fırsat)' },
         { id: 'indexing' as Section, icon: <CheckCircle2 size={18} />, label: 'Index Durumu' },
+        { id: 'crawler' as Section, icon: <Network size={18} />, label: 'Link Crawler (Beta)' },
         { id: 'changelog' as Section, icon: <FileText size={18} />, label: 'Değişiklik Günlüğü' },
     ];
 
@@ -101,6 +103,7 @@ export default function Dashboard() {
         cannibalization: 'Keyword Cannibalizm Tespiti',
         'low-hanging-fruits': 'Hızlı Kazanımlar (Low-Hanging Fruits)',
         indexing: 'Index Durumu Analizi (/blog)',
+        crawler: 'İç Link Crawler ve Haritalama',
         fetch: 'Veri Çekme',
         settings: 'Ayarlar',
     };
@@ -188,6 +191,7 @@ export default function Dashboard() {
                     {active === 'cannibalization' && <CannibalizationView />}
                     {active === 'low-hanging-fruits' && <LowHangingFruitsView onAnalyze={setAnalysisUrl} />}
                     {active === 'indexing' && <IndexingView />}
+                    {active === 'crawler' && <CrawlerView />}
                     {active === 'fetch' && <FetchView />}
                     {active === 'settings' && <SettingsView />}
                 </div>
