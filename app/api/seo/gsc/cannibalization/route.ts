@@ -5,7 +5,6 @@ import { subDays, format } from 'date-fns';
 
 export async function GET(request: NextRequest) {
     try {
-        // Son 30 gün (GSC 2 gün geriden gelir)
         const today = new Date();
         const endDate = subDays(today, 2);
         const startDate = subDays(endDate, 30);
@@ -15,46 +14,87 @@ export async function GET(request: NextRequest) {
 
         console.log(`[API /cannibalization] Fetching 30 days data: ${startDateStr} - ${endDateStr}`);
 
-        // GSC'den query + page verisini çek
-        // Cannibalization için genellikle yüksek row limit gerekir
-        const data = await fetchCannibalizationData(startDateStr, endDateStr, 10000);
+        // Increase limit to capture more data for analysis
+        const data = await fetchCannibalizationData(startDateStr, endDateStr, 25000);
 
-        // Query bazlı grupla
         const queryGroups = new Map<string, any[]>();
-
         for (const row of data) {
+            // URL Normalizasyonu: # ve sonrasını at (Anchor link noise temizliği)
+            const cleanUrl = row.page.split('#')[0];
             const existing = queryGroups.get(row.query) || [];
-            existing.push(row);
+
+            // Bu sorgu için bu ANA URL zaten eklenmiş mi?
+            const alreadyIn = existing.find(p => p.page === cleanUrl);
+
+            if (alreadyIn) {
+                // Aynı URL ise rakamları topla, en iyi pozisyonu tut
+                alreadyIn.clicks += row.clicks;
+                alreadyIn.impressions += row.impressions;
+                alreadyIn.position = Math.min(alreadyIn.position, row.position);
+            } else {
+                existing.push({ ...row, page: cleanUrl });
+            }
             queryGroups.set(row.query, existing);
         }
 
-        // Birden fazla sayfası olan query'leri ayıkla (Cannibalization)
         const cannibalized = Array.from(queryGroups.entries())
-            .filter(([_, pages]) => pages.length > 1)
             .map(([query, pages]) => {
-                // Toplam clicks ve impressions hesapla
                 const totalClicks = pages.reduce((sum, p) => sum + p.clicks, 0);
                 const totalImpressions = pages.reduce((sum, p) => sum + p.impressions, 0);
 
-                // Sayfaları clicks'e göre sırala
-                const sortedPages = pages.sort((a, b) => b.clicks - a.clicks);
+                // Filter Effective URLs: impressions > 5% of total
+                const effectivePages = pages.filter(p => p.impressions > totalImpressions * 0.05)
+                    .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions);
+
+                if (effectivePages.length < 2) return null;
+
+                // A) Dominance Score
+                const maxClicks = effectivePages[0].clicks;
+                const dominance = totalClicks > 0 ? maxClicks / totalClicks : (effectivePages[0].impressions / totalImpressions);
+                let dominanceLevel = 'LOW';
+                if (dominance < 0.5) dominanceLevel = 'HIGH';
+                else if (dominance <= 0.75) dominanceLevel = 'MEDIUM';
+
+                // B) Position Gap Score
+                const firstPos = effectivePages[0].position;
+                const secondPos = effectivePages[1].position;
+                const posGap = Math.abs(firstPos - secondPos);
+                let gapLevel = 'LOW';
+                if (posGap < 1) gapLevel = 'HIGH';
+                else if (posGap <= 3) gapLevel = 'MEDIUM';
+
+                // C) Impression Share Balance
+                const firstImp = effectivePages[0].impressions;
+                const secondImp = effectivePages[1].impressions;
+                const impRatio = secondImp / firstImp;
+                let impLevel = 'LOW';
+                if (impRatio > 0.7) impLevel = 'HIGH';
+                else if (impRatio >= 0.3) impLevel = 'MEDIUM';
+
+                // Unified Risk Calculation (0 - 100)
+                const getWeight = (lvl: string) => lvl === 'HIGH' ? 100 : (lvl === 'MEDIUM' ? 50 : 0);
+                const riskScore = Math.round((getWeight(dominanceLevel) + getWeight(gapLevel) + getWeight(impLevel)) / 3);
 
                 return {
                     query,
                     totalClicks,
                     totalImpressions,
-                    pageCount: pages.length,
-                    pages: sortedPages
+                    pageCount: effectivePages.length,
+                    actualUrlCount: pages.length,
+                    riskScore,
+                    riskLevel: riskScore > 60 ? 'HIGH' : (riskScore > 30 ? 'MEDIUM' : 'LOW'),
+                    metrics: { dominance, posGap, impRatio },
+                    pages: effectivePages
                 };
             })
-            // Önemine göre sırala (en çok tıklama alan cannibalization'lar en başta)
-            .sort((a, b) => b.totalClicks - a.totalClicks || b.totalImpressions - a.totalImpressions);
+            .filter(item => item !== null)
+            .sort((a, b) => (b as any).riskScore - (a as any).riskScore || (b as any).totalClicks - (a as any).totalClicks);
 
         return successResponse({
             startDate: startDateStr,
             endDate: endDateStr,
             count: cannibalized.length,
-            data: cannibalized.slice(0, 100) // Şimdilik ilk 100'ü dönelim
+            data: cannibalized.slice(0, 100)
         });
 
     } catch (error) {

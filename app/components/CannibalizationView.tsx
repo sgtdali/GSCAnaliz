@@ -75,8 +75,18 @@ export function CannibalizationView() {
                             <div key={i} className="cannibal-item" style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--glass-border)', borderRadius: '12px', background: 'rgba(255,255,255,0.02)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                     <div>
-                                        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-light)', fontWeight: 600 }}>Sorgu (Query)</div>
-                                        <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            Sorgu (Query)
+                                            <span style={{
+                                                padding: '1px 6px', borderRadius: '4px', fontSize: '10px',
+                                                background: item.riskLevel === 'HIGH' ? 'var(--red-bg)' : (item.riskLevel === 'MEDIUM' ? 'var(--yellow-bg)' : 'var(--green-bg)'),
+                                                color: item.riskLevel === 'HIGH' ? 'var(--red)' : (item.riskLevel === 'MEDIUM' ? 'var(--yellow)' : 'var(--green)'),
+                                                border: '1px solid currentColor'
+                                            }}>
+                                                RİSK: {item.riskLevel} ({item.riskScore})
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
                                             {item.query}
                                             <button
                                                 className={`btn btn--sm ${analyzing === item.query ? 'btn--loading' : ''}`}
@@ -87,6 +97,12 @@ export function CannibalizationView() {
                                                 {analyzing === item.query ? <Loader2 size={12} className="icon-spin" /> : <Search size={12} style={{ marginRight: '4px' }} />}
                                                 Detaylı Analiz Et
                                             </button>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                            <span>Dominance: <strong>{(item.metrics.dominance * 100).toFixed(0)}%</strong></span>
+                                            <span>Gap: <strong>{item.metrics.posGap.toFixed(1)}</strong></span>
+                                            <span>Share: <strong>{(item.metrics.impRatio * 100).toFixed(0)}%</strong></span>
+                                            {item.actualUrlCount > item.pageCount && <span>(Index noise filtrelendi: {item.actualUrlCount - item.pageCount} URL)</span>}
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
@@ -192,9 +208,19 @@ export function CannibalizationView() {
                                 <div style={{ display: 'grid', gap: '20px' }}>
                                     {analysisResult.reports.map((report: any, idx: number) => (
                                         <div key={idx} style={{ padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)' }}>
-                                            <div style={{ marginBottom: '12px', wordBreak: 'break-all' }}>
-                                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', marginRight: '8px', fontWeight: 600 }}>
+                                            <div style={{ marginBottom: '12px', wordBreak: 'break-all', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
                                                     {report.isBlog ? 'BLOG' : (report.isProduct ? 'ÜRÜN' : 'DİĞER')}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 600,
+                                                    background: report.status === 200 ? 'var(--green-bg)' : 'var(--red-bg)',
+                                                    color: report.status === 200 ? 'var(--green)' : 'var(--red)'
+                                                }}>
+                                                    HTTP {report.status}
                                                 </span>
                                                 <a href={report.url} target="_blank" className="table__url" style={{ fontWeight: 600 }}>{report.url}</a>
                                             </div>
