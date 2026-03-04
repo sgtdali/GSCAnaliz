@@ -72,3 +72,24 @@ export async function getIncomingLinks(targetPage: string) {
 
     return data;
 }
+
+/**
+ * Tablodaki tüm linkleri siler. 
+ * Tam tarama başlatılmadan önce verilerin birikmesini önlemek için kullanılır.
+ */
+export async function truncateInternalLinks(): Promise<{ success: boolean; error: string | null }> {
+    const supabase = getSupabase();
+
+    // Supabase JS client'da 'truncate' yoktur, filtre vermeden delete kullanıyoruz.
+    const { error } = await supabase
+        .from('internal_links')
+        .delete()
+        .neq('id', 0); // BIGINT id >= 1 olduğu için hepsini kapsar
+
+    if (error) {
+        console.error(`[DB] Truncate error:`, error.message);
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+}

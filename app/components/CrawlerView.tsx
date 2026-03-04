@@ -66,9 +66,10 @@ export function CrawlerView() {
             const data = await response.json();
             if (data.success) {
                 setCrawlResult(data.data);
-                // Reset pagination and refresh stats
+                // Önemli: Tarama bittiğinde verileri sıfırla ve yeniden çek
                 setOffset(0);
-                mutate('/api/seo/crawler');
+                setSampleLinks([]); // Önce temizle
+                await mutate('/api/seo/crawler'); // Sonra güncel istatistikleri çek
             } else {
                 setError(data.error || 'Tarama sırasında bir hata oluştu.');
             }
@@ -128,9 +129,9 @@ export function CrawlerView() {
                     color="purple"
                 />
                 <StatCard
-                    label="Taranan Sayfa"
-                    value={stats?.sample?.length ? '100+' : '0'}
-                    change="Test"
+                    label="Taranan Sayfa (Kaynak)"
+                    value={stats?.totalLinks > 0 ? (stats?.totalLinks / 15).toFixed(0) : '0'}
+                    change="Tahmini"
                     up={true}
                     icon={<Globe size={18} />}
                     color="blue"
@@ -210,7 +211,10 @@ export function CrawlerView() {
 
                     <div className="panel">
                         <div className="panel__header">
-                            <h3 className="panel__title"><Network size={16} className="panel__title-icon" /> Linkleme Örnekleri (Kuyruk)</h3>
+                            <h3 className="panel__title">
+                                <Network size={16} className="panel__title-icon" />
+                                İç Link Haritası (Kuyruk: {stats?.totalLinks || 0} Bağlantı)
+                            </h3>
                         </div>
                         <div className="panel__body">
                             <div className="table-container">

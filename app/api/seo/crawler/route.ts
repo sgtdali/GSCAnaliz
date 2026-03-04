@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/db/connection';
 import { InternalLinkCrawler } from '@/lib/seo/crawler';
+import { truncateInternalLinks } from '@/lib/db/internal-links';
 import * as cheerio from 'cheerio';
 
 /**
@@ -46,6 +47,12 @@ export async function POST(req: Request) {
     try {
         const payload = await req.json().catch(() => ({}));
         const limit = payload.limit; // Optional limit
+
+        // 0. Önce tüm eski verileri silelim (Kullanıcı Talebi)
+        const { success: truncateSuccess, error: truncateError } = await truncateInternalLinks();
+        if (!truncateSuccess) {
+            throw new Error(`Eski veriler temizlenemedi: ${truncateError}`);
+        }
 
         const SITE_URL = 'https://uygunbakim.com';
         const SITEMAP_URL = `${SITE_URL}/sitemap.xml`;
