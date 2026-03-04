@@ -6,6 +6,7 @@
  */
 
 import { getSupabase } from './connection';
+import { determineAction, ScoringInput } from '../analysis/scoring';
 
 // ============================================
 // Types
@@ -284,8 +285,19 @@ export async function getActionRecommendations(
     const recommendations: ActionRecommendation[] = [];
 
     for (const [, row] of latestByPage) {
-        const action = determineAction(row);
-        const priority = calculatePriority(row);
+        const input: ScoringInput = {
+            page: row.page,
+            clicks: row.total_clicks,
+            impressions: row.total_impressions,
+            avgCtr: row.avg_ctr,
+            avgPosition: row.avg_position,
+            clickChangePct: row.click_change_pct,
+            impressionChangePct: row.impression_change_pct,
+            ctrDelta: row.ctr_delta,
+            positionDelta: row.position_delta,
+        };
+
+        const result = determineAction(input);
 
         recommendations.push({
             page: row.page,
@@ -297,8 +309,8 @@ export async function getActionRecommendations(
             impression_change_pct: row.impression_change_pct,
             ctr_delta: row.ctr_delta,
             position_delta: row.position_delta,
-            action_recommendation: action,
-            priority_score: priority,
+            action_recommendation: result.action,
+            priority_score: result.priorityScore,
         });
     }
 
@@ -444,70 +456,3 @@ export async function updateSiteMetadata(key: string, value: string) {
     if (error) throw new Error(`updateSiteMetadata failed: ${error.message}`);
 }
 
-/**
- * WoW metriklerine göre aksiyon belirler.
- */
-function determineAction(row: WeeklySummary): string {
-    const { impression_change_pct, ctr_delta, position_delta, click_change_pct } = row;
-
-    // Kural 1: Impressions artıp CTR düşüyorsa → title/meta testi
-    if ((impression_change_pct ?? 0) > 10 && (ctr_delta ?? 0) < -0.5) {
-        return 'TITLE_META_TEST';
-    }
-
-    // Kural 2: Position iyileşip click artmıyorsa → snippet/intent uyumu
-    if ((position_delta ?? 0) < -1.0 && (click_change_pct ?? 0) < 5) {
-        return 'SNIPPET_INTENT_REVIEW';
-    }
-
-    // Kural 3: Click düşüşü → query kaybı analizi
-    if ((click_change_pct ?? 0) < -15) {
-        return 'QUERY_LOSS_ANALYSIS';
-    }
-
-    // Kural 4: Tüm metrikler düşüyor → acil inceleme
-    if ((click_change_pct ?? 0) < -10 && (impression_change_pct ?? 0) < -10) {
-        return 'URGENT_REVIEW';
-    }
-
-    // Kural 5: Position kötüleşiyor → teknik/içerik kontrolü
-    if ((position_delta ?? 0) > 2.0) {
-        return 'POSITION_DECLINE_CHECK';
-    }
-
-    // Kural 6: Büyüme → fırsat
-    if ((click_change_pct ?? 0) > 20 && (impression_change_pct ?? 0) > 20) {
-        return 'GROWTH_OPPORTUNITY';
-    }
-
-    return 'MONITOR';
-}
-
-/**
- * Öncelik skoru hesaplar (0-100).
- */
-function calculatePriority(row: WeeklySummary): number {
-    let score = 0;
-
-    // Yüksek hacimli sayfalar daha önemli
-    if (row.total_impressions > 1000) score += 30;
-    else if (row.total_impressions > 500) score += 20;
-    else if (row.total_impressions > 100) score += 10;
-    else score += 5;
-
-    // Büyük düşüşler daha acil
-    const clickChange = row.click_change_pct ?? 0;
-    if (clickChange < -30) score += 40;
-    else if (clickChange < -15) score += 25;
-    else if (clickChange < -5) score += 10;
-
-    // Position kötüleşmesi
-    const posDelta = row.position_delta ?? 0;
-    if (posDelta > 5) score += 20;
-    else if (posDelta > 2) score += 10;
-
-    // CTR düşüşü
-    if ((row.ctr_delta ?? 0) < -1.0) score += 10;
-
-    return Math.max(0, Math.min(100, score));
-}

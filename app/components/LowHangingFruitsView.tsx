@@ -4,7 +4,7 @@ import { TrendingUp, AlertTriangle, Loader2, MousePointer2, Eye, Percent, ArrowU
 
 const fetcher = (url: string) => fetch(url).then(res => res.json()).then(res => res.data);
 
-export function LowHangingFruitsView({ onAnalyze }: { onAnalyze: (url: string) => void }) {
+export function LowHangingFruitsView({ onAnalyze }: { onAnalyze: (url: string, query: string) => void }) {
     const { data: results, error, isLoading } = useSWR('/api/seo/gsc/low-hanging-fruits', fetcher);
 
     if (error) return (
@@ -86,7 +86,7 @@ export function LowHangingFruitsView({ onAnalyze }: { onAnalyze: (url: string) =
                                             <button
                                                 className="main__header-btn"
                                                 style={{ padding: '4px 8px', fontSize: '11px', height: 'auto' }}
-                                                onClick={() => onAnalyze(item.page)}
+                                                onClick={() => onAnalyze(item.page, item.query)}
                                             >
                                                 <ArrowUpRight size={12} /> Analiz Et
                                             </button>

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import {
     Home, BarChart2, Calendar, Target, Microscope, FileText, RefreshCw, Settings,
-    CheckCircle2, Layers, TrendingUp, Network
+    CheckCircle2, Layers, TrendingUp, Network, Sparkles
 } from 'lucide-react';
 
 import { Section } from '@/lib/types';
@@ -21,6 +21,7 @@ import { SettingsView } from './components/SettingsView';
 import { LowHangingFruitsView } from './components/LowHangingFruitsView'; // SEO Analysis
 import { CrawlerView } from './components/CrawlerView'; // Link Crawler
 import { BlogVersionerView } from './components/BlogVersionerView'; // Blog Change Management
+import { ImprovementOpportunitiesView } from './components/ImprovementOpportunitiesView';
 
 // Shared Components
 import { QueryAnalysisModal } from './components/shared/QueryAnalysisModal';
@@ -29,7 +30,7 @@ const fetcher = (url: string) => fetch(url).then(res => res.json()).then(res => 
 
 export default function Dashboard() {
     const [active, setActive] = useState<Section>('dashboard');
-    const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
+    const [analysisData, setAnalysisData] = useState<{ url: string; query?: string } | null>(null);
 
     // API Data Fetching
     const { data: weeklyData } = useSWR('/api/seo/gsc/weekly', fetcher);
@@ -80,6 +81,7 @@ export default function Dashboard() {
         { id: 'actions' as Section, icon: <Target size={18} />, label: 'Aksiyon Önerileri', badge: actionsData?.length },
         { id: 'cannibalization' as Section, icon: <Layers size={18} />, label: 'Keyword Cannibalizm' },
         { id: 'low-hanging-fruits' as Section, icon: <TrendingUp size={18} />, label: 'Hızlı Kazanımlar (Fırsat)' },
+        { id: 'improvement-opportunities' as Section, icon: <Sparkles size={18} style={{ color: 'var(--yellow)' }} />, label: 'İyileştirme Fırsatları' },
         { id: 'indexing' as Section, icon: <CheckCircle2 size={18} />, label: 'Index Durumu' },
         { id: 'crawler' as Section, icon: <Network size={18} />, label: 'Link Crawler (Beta)' },
         { id: 'blog-versioning' as Section, icon: <Layers size={18} />, label: 'Blog Değişiklik Kontrolü' },
@@ -100,6 +102,7 @@ export default function Dashboard() {
         indexing: 'Index Durumu Analizi (/blog)',
         crawler: 'İç Link Crawler ve Haritalama',
         'blog-versioning': 'Blog Değişiklik Yönetimi (Git-like)',
+        'improvement-opportunities': 'İyileştirme Fırsatları (Deep Audit)',
         fetch: 'Veri Çekme',
         settings: 'Ayarlar',
     };
@@ -178,12 +181,13 @@ export default function Dashboard() {
                 </header>
 
                 <div className="main__content">
-                    {active === 'dashboard' && <DashboardView stats={stats} weeklyData={weeklyData} actions={actionsData} onAnalyze={setAnalysisUrl} />}
+                    {active === 'dashboard' && <DashboardView stats={stats} weeklyData={weeklyData} actions={actionsData} onAnalyze={(url: string) => setAnalysisData({ url })} />}
                     {active === 'daily' && <DailyView />}
                     {active === 'weekly' && <WeeklyView data={weeklyData} />}
-                    {active === 'actions' && <ActionsView data={actionsData} onAnalyze={setAnalysisUrl} />}
+                    {active === 'actions' && <ActionsView data={actionsData} onAnalyze={(url: string) => setAnalysisData({ url })} />}
                     {active === 'cannibalization' && <CannibalizationView />}
-                    {active === 'low-hanging-fruits' && <LowHangingFruitsView onAnalyze={setAnalysisUrl} />}
+                    {active === 'low-hanging-fruits' && <LowHangingFruitsView onAnalyze={(url: string, query: string) => setAnalysisData({ url, query })} />}
+                    {active === 'improvement-opportunities' && <ImprovementOpportunitiesView onAnalyze={(url: string) => setAnalysisData({ url })} />}
                     {active === 'indexing' && <IndexingView />}
                     {active === 'crawler' && <CrawlerView />}
                     {active === 'blog-versioning' && <BlogVersionerView />}
@@ -191,8 +195,12 @@ export default function Dashboard() {
                     {active === 'settings' && <SettingsView />}
                 </div>
 
-                {analysisUrl && (
-                    <QueryAnalysisModal url={analysisUrl} onClose={() => setAnalysisUrl(null)} />
+                {analysisData && (
+                    <QueryAnalysisModal
+                        url={analysisData.url}
+                        query={analysisData.query}
+                        onClose={() => setAnalysisData(null)}
+                    />
                 )}
             </main>
         </div>
